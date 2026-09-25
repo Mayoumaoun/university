@@ -181,7 +181,8 @@ function start(ids){
  const mat=use.map(p=>`### ${p.title}${p.cat?` — ${p.cat}${p.sub?' / '+p.sub:''}`:''}\n${p.text}`).join('\n\n');
  I={style:S.style,posts:use,N,log:[],ans:0,busy:false,cap:false,
   msgs:[{role:'system',content:`${S.style=='strict'?'You are a strict senior interviewer at a top company. Be terse and technical, probe vague answers, ask for precision and trade-offs, give no praise.':'You are a warm, conversational interviewer. Be encouraging, use a casual tone, give a small hint if the candidate is stuck, and keep it relaxed.'}\nYou are running a spoken interview testing the candidate's understanding of the material below, which may span several topics or time periods.\nRules: ask ONE question at a time, at most two short sentences under 180 characters, plain spoken English, no markdown or lists. Mix concept, intuition and applied questions, drawing from across all the material provided, not just the first item. React briefly to the previous answer before the next question. Ask ${N} questions in total. When told the interview is over, say a brief closing line and end with [END].\n\nMATERIAL:\n${mat}`},{role:'user',content:'Begin the interview.'}]};
- go('live');liveUi();ask()}
+ stopAudio();$('#n1').className='';$('#n2').className='on';$('#n3').className='';
+ liveUi();ask()}
 function liveUi(msg){
  app(`<div class="top"><h2>Interview</h2><button class="g" onclick="if(confirm('Leave without saving?'))go('pick')">Quit</button></div>
  <div class="card"><p class="mute" style="margin:0 0 6px">${I.posts.length} post${I.posts.length>1?'s':''}: ${esc(I.posts.map(p=>p.title).join(', '))}</p>
