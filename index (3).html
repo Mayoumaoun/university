@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#151a2e">
+<title>Interview Coach</title>
+<style>
+:root{--bg:#151a2e;--card:#1f2540;--ink:#eef0fa;--mute:#98a0c4;--acc:#9fb3ff;--ok:#6fd6a4;--warn:#f2b25c;--bad:#f27b7b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif;padding:env(safe-area-inset-top) 0 calc(72px + env(safe-area-inset-bottom))}
+h1,h2,h3{font-family:Georgia,serif;font-weight:600;margin:0}
+#app{max-width:560px;margin:auto;padding:14px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px}
+button{font:inherit;color:var(--ink);background:#2c3457;border:0;border-radius:10px;padding:10px 14px}
+button.p{background:var(--acc);color:#151a2e;font-weight:600}
+button.g{background:none;color:var(--mute)}
+button:disabled{opacity:.4}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}
+input,textarea,select{width:100%;font:inherit;color:var(--ink);background:#151a2e;border:1px solid #333c66;border-radius:10px;padding:10px}
+textarea{min-height:180px}
+.mute{color:var(--mute);font-size:14px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0f1324;padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1;background:none;color:var(--mute)}nav .on{color:var(--acc);font-weight:600}
+.mic{width:130px;height:130px;border-radius:50%;background:var(--acc);color:#151a2e;font-weight:700;display:block;margin:26px auto}
+.mic.rec{background:var(--bad);animation:pu 1.1s infinite}
+@keyframes pu{50%{transform:scale(1.06)}}
+.li{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;margin-bottom:8px;background:var(--card)}
+.sc{font-family:Georgia,serif;font-size:34px;color:var(--acc)}
+.q{border-left:3px solid #333c66;padding-left:10px;margin:10px 0}
+ul{padding-left:18px;margin:6px 0}
+details summary{color:var(--acc);padding:8px 0;cursor:pointer}
+pre{white-space:pre-wrap;font:14px/1.5 system-ui;margin:0}
+.seg{display:flex;background:#151a2e;border-radius:10px;padding:3px}.seg button{flex:1;background:none;padding:8px}.seg .on{background:var(--acc);color:#151a2e;font-weight:600}
+.icon{background:none;padding:6px 10px;font-size:20px}
+.grp{margin-bottom:10px}
+.grph{display:flex;align-items:center;gap:8px;padding:8px 2px;font-weight:600}
+.subh{display:flex;align-items:center;gap:8px;padding:6px 2px 6px 14px;color:var(--mute);font-size:14px}
+.prow{display:flex;align-items:center;gap:10px;padding:9px 2px 9px 26px;border-bottom:1px solid #2a2f4d}
+.prow:last-child{border-bottom:0}
+.prow .pt{flex:1;min-width:0}
+.prow .pt b{display:block;font-size:15px}
+.prow .pt span{color:var(--mute);font-size:12.5px}
+.chk{width:22px;height:22px;border-radius:6px;border:1.5px solid #4a5384;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px}
+.chk.on{background:var(--acc);border-color:var(--acc);color:#151a2e}
+.streak{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.sd{aspect-ratio:1;border-radius:6px;background:#2c3457}
+.sd.on{background:var(--ok)}
+.fab{position:sticky;bottom:calc(70px + env(safe-area-inset-bottom));margin-top:10px}
+.empty{color:var(--mute);text-align:center;padding:30px 10px}
+</style></head><body>
+<div id="app"></div>
+<nav><button id="n1" onclick="go('lib')">Library</button><button id="n2" onclick="go('pick')">Interview</button><button id="n3" onclick="go('hist')">History</button></nav>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&lt;','<':'&lt;','>':'&gt;'}[c]));
+const natCmp=(a,b)=>String(a||'').localeCompare(String(b||''),undefined,{numeric:true,sensitivity:'base'});
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+function migrate(o){
+ if(!o)return {v:2,key:'',style:'strict',posts:[],sessions:[]};
+ if(o.v==2)return o;
+ const posts=[],idMap={};
+ if(o.posts&&!Array.isArray(o.posts)){
+  Object.keys(o.posts).forEach(k=>{const p=o.posts[k];const id='p'+k,wk=Math.ceil(k/7);
+   posts.push({id,title:p.title||('Day '+k),text:p.text||'',url:p.url||'',cat:'AI 16-week series',sub:'Week '+wk,ts:Number(k)});
+   idMap[k]=id})}
+ const sessions=(o.sessions||[]).map(s=>({id:s.id||uid(),ts:s.ts,style:s.style||'strict',
+  posts:(s.posts||[]).map(p=>({id:idMap[p.n]||('p'+p.n),title:p.title||('Day '+p.n),cat:'AI 16-week series',sub:'Week '+Math.ceil((p.n||1)/7),text:p.text||''})),
+  log:s.log||[],analysis:s.analysis||{}}));
+ return {v:2,key:o.key||'',style:o.style||'strict',posts,sessions}}
+
+let S=migrate(JSON.parse(localStorage.getItem('ai16')||'null'));
+const save=()=>localStorage.setItem('ai16',JSON.stringify(S));
+const fmt=t=>new Date(t).toLocaleString([], {dateStyle:'medium',timeStyle:'short'});
+let I=null,au=null,sel=new Set(),editing=null;
+
+function go(v,a){stopAudio();if(I&&I.rec){try{I.rec.stop()}catch{}}I=null;
+ $('#n1').className=v=='lib'||v=='post'?'on':'';$('#n2').className=v=='pick'||v=='live'?'on':'';$('#n3').className=v=='hist'||v=='det'?'on':'';
+ ({lib,post,pick,live:()=>{},set,hist,det})[v](a)}
+const app=h=>$('#app').innerHTML=h;
+
+/* ---------- grouping ---------- */
+function groups(list){
+ const cats={};
+ list.forEach(p=>{const c=p.cat||'Uncategorized';(cats[c]=cats[c]||{}); const s=p.sub||'';(cats[c][s]=cats[c][s]||[]).push(p)});
+ return Object.keys(cats).sort(natCmp).map(c=>({cat:c,subs:Object.keys(cats[c]).sort(natCmp).map(s=>({sub:s,posts:cats[c][s]}))}))}
+
+/* ---------- Library ---------- */
+function lib(){
+ const days=[];for(let i=34;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d.toDateString())}
+ const done=new Set(S.sessions.map(s=>new Date(s.ts).toDateString()));
+ let streakN=0;for(let i=0;;i++){const d=new Date();d.setDate(d.getDate()-i);if(done.has(d.toDateString()))streakN++;else break}
+ const strip=days.map(d=>`<div class="sd ${done.has(d)?'on':''}"></div>`).join('');
+ const gs=groups(S.posts);
+ const body=S.posts.length?gs.map(g=>`<div class="grp"><div class="grph">${esc(g.cat)} <span class="mute" style="font-weight:400">(${g.subs.reduce((n,s)=>n+s.posts.length,0)})</span></div>
+  ${g.subs.map(s=>`${s.sub?`<div class="subh">${esc(s.sub)}</div>`:''}
+   ${s.posts.map(p=>`<div class="prow" onclick="go('post','${p.id}')"><span class="pt"><b>${esc(p.title)}</b><span>${esc((p.text||'').slice(0,70))}${p.text&&p.text.length>70?'…':''}</span></span></div>`).join('')}`).join('')}
+  </div>`).join(''):'<p class="empty">No posts yet. Add your first one.</p>';
+ app(`<div class="top"><h1>Library</h1><button class="icon" onclick="go('set')">⚙</button></div>
+ <div class="card"><p class="mute" style="margin:0 0 8px">${streakN?`${streakN}-day interview streak`:'No interview streak yet'} · last 35 days</p><div class="streak">${strip}</div></div>
+ <button class="p" style="width:100%;margin-bottom:12px" onclick="go('post')">+ Add a post</button>
+ ${body}`)}
+
+/* ---------- Post add/edit ---------- */
+function post(id){
+ editing=id||null;
+ const p=id?S.posts.find(x=>x.id==id):{};
+ const cats=[...new Set(S.posts.map(x=>x.cat).filter(Boolean))].sort(natCmp);
+ const subs=[...new Set(S.posts.filter(x=>x.cat==(p&&p.cat)).map(x=>x.sub).filter(Boolean))].sort(natCmp);
+ app(`<div class="top"><h2>${id?'Edit post':'Add post'}</h2><button class="g" onclick="go('lib')">Back</button></div>
+ <div class="card">
+ <input id="pt" placeholder="Title" value="${esc(p.title||'')}" style="margin-bottom:8px">
+ <input id="pc" list="cl" placeholder="Category, e.g. AI 16-week series" value="${esc(p.cat||'')}" style="margin-bottom:8px">
+ <datalist id="cl">${cats.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+ <input id="ps" list="sl" placeholder="Sub-category, e.g. Week 5 (optional)" value="${esc(p.sub||'')}" style="margin-bottom:8px">
+ <datalist id="sl">${subs.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+ <textarea id="px" placeholder="Paste the post link or the full text">${esc(p.text||p.url||'')}</textarea>
+ <p class="mute" id="pm">A link is fetched through a free reader. If it fails, paste the text instead.</p>
+ <div class="row"><button class="p" onclick="savePost()">Save</button>${id?'<button onclick="delPost()">Delete</button>':''}</div></div>`)}
+async function savePost(){
+ let v=$('#px').value.trim(),t=$('#pt').value.trim(),cat=$('#pc').value.trim(),sub=$('#ps').value.trim(),url='';
+ if(!v||!t){$('#pm').textContent='Title and content are both needed.';$('#pm').style.color='var(--bad)';return}
+ if(/^https?:\/\/\S+$/.test(v)){url=v;$('#pm').textContent='Fetching the post...';$('#pm').style.color='';
+  try{const r=await fetch('https://r.jina.ai/'+v);if(!r.ok)throw 0;const x=await r.text();
+   v=x.includes('Markdown Content:')?x.split('Markdown Content:')[1].trim():x;
+   if(v.length<300)throw 0}
+  catch{$('#pm').textContent='Could not fetch that link. Open the post, copy its text and paste it here.';$('#pm').style.color='var(--bad)';return}}
+ if(editing){const p=S.posts.find(x=>x.id==editing);Object.assign(p,{title:t,text:v,url,cat,sub})}
+ else S.posts.push({id:uid(),title:t,text:v,url,cat,sub,ts:Date.now()});
+ save();go('lib')}
+function delPost(){if(!confirm('Delete this post? Past interviews that used it keep their own copy of the text.'))return;S.posts=S.posts.filter(x=>x.id!=editing);save();go('lib')}
+
+/* ---------- Settings ---------- */
+function set(){
+ app(`<div class="top"><h2>Settings</h2><button class="g" onclick="go('lib')">Back</button></div>
+ <div class="card"><p class="mute">Free Groq API key from console.groq.com. Stored only on this phone.</p>
+ <input id="k" type="password" placeholder="gsk_..." value="${esc(S.key)}"><br><br><button class="p" onclick="S.key=$('#k').value.trim();save();go('lib')">Save key</button></div>
+ <div class="card"><p class="mute">Backup your library and history.</p><div class="row">
+ <button onclick="exp()">Export</button><button onclick="$('#f').click()">Import</button></div>
+ <input id="f" type="file" accept=".json" hidden onchange="imp(this.files[0])"></div>`)}
+function exp(){const{key,...d}=S;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(d)],{type:'application/json'}));a.download='interview-coach-backup.json';a.click()}
+async function imp(f){try{const d=JSON.parse(await f.text());if(d.v!=2)throw 0;S={...S,...d,key:S.key};save();go('lib')}catch{alert('That file could not be read.')}}
+
+/* ---------- Groq ---------- */
+async function groq(path,o){const r=await fetch('https://api.groq.com/openai/v1/'+path,{...o,headers:{Authorization:'Bearer '+S.key,...(o.headers||{})}});if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));return r}
+async function chat(messages,json){let err;for(const m of ['llama-3.3-70b-versatile','llama-3.1-8b-instant']){try{const r=await groq('chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m,messages,temperature:.6,...(json?{response_format:{type:'json_object'}}:{})})});return(await r.json()).choices[0].message.content}catch(e){err=e}}throw err}
+function chunks(t){const o=[];let c='';for(const s of t.match(/[^.!?]+[.!?]*\s*/g)||[t]){if((c+s).length>190&&c){o.push(c.trim());c=s}else c+=s}if(c.trim())o.push(c.trim());return o.map(x=>x.slice(0,195))}
+function play(u){return new Promise((res,rej)=>{au=new Audio(u);au.onended=res;au.onerror=rej;au.play().catch(rej)})}
+function stopAudio(){if(au){au.pause();au=null}speechSynthesis.cancel()}
+function browserTTS(t){return new Promise(r=>{const u=new SpeechSynthesisUtterance(t);u.onend=u.onerror=r;speechSynthesis.speak(u)})}
+async function speak(t){stopAudio();
+ try{for(const c of chunks(t)){const r=await groq('audio/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'canopylabs/orpheus-v1-english',input:c,voice:I&&I.style=='strict'?'troy':'hannah',response_format:'wav'})});await play(URL.createObjectURL(await r.blob()))}}
+ catch{await browserTTS(t)}}
+async function stt(blob){const f=new FormData();f.append('file',blob,'a.'+(blob.type.includes('mp4')?'m4a':'webm'));f.append('model','whisper-large-v3-turbo');f.append('language','en');return(await(await groq('audio/transcriptions',{method:'POST',body:f})).json()).text.trim()}
+
+/* ---------- Pick posts for an interview ---------- */
+function pick(){
+ if(!S.posts.length){app(`<div class="top"><h1>New interview</h1></div><p class="empty">Add posts in the Library first.</p>`);return}
+ const gs=groups(S.posts);
+ const groupState=g=>{const ids=g.posts.map(p=>p.id);const on=ids.filter(i=>sel.has(i)).length;return on==0?'':on==ids.length?'on':'~'};
+ app(`<div class="top"><h1>New interview</h1></div>
+ <div class="card"><div class="seg" style="margin-bottom:10px"><button class="${S.style=='strict'?'on':''}" onclick="S.style='strict';save();pick()">Strict</button><button class="${S.style=='friendly'?'on':''}" onclick="S.style='friendly';save();pick()">Friendly</button></div>
+ <p class="mute" style="margin:0">Select any posts, from any weeks or topics, then start.</p></div>
+ <button class="p fab" style="width:100%" ${sel.size?'':'disabled'} onclick="startPicked()">Start interview (${sel.size} selected)</button>
+ ${gs.map(g=>`<div class="grp"><div class="grph" onclick="toggleGroup(${JSON.stringify(g.subs.flatMap(s=>s.posts.map(p=>p.id)))})"><span class="chk ${groupState({posts:g.subs.flatMap(s=>s.posts)})=='on'?'on':''}">${groupState({posts:g.subs.flatMap(s=>s.posts)})=='on'?'✓':groupState({posts:g.subs.flatMap(s=>s.posts)})=='~'?'–':''}</span>${esc(g.cat)}</div>
+  ${g.subs.map(s=>`<div class="subh" onclick="toggleGroup(${JSON.stringify(s.posts.map(p=>p.id))})"><span class="chk ${groupState(s)=='on'?'on':''}">${groupState(s)=='on'?'✓':groupState(s)=='~'?'–':''}</span>${esc(s.sub||'(no sub-category)')}</div>
+   ${s.posts.map(p=>`<div class="prow" onclick="toggleOne('${p.id}')"><span class="chk ${sel.has(p.id)?'on':''}">${sel.has(p.id)?'✓':''}</span><span class="pt"><b>${esc(p.title)}</b></span></div>`).join('')}`).join('')}
+  </div>`).join('')}`)}
+function toggleOne(id){sel.has(id)?sel.delete(id):sel.add(id);pick()}
+function toggleGroup(ids){const allOn=ids.every(i=>sel.has(i));ids.forEach(i=>allOn?sel.delete(i):sel.add(i));pick()}
+function startPicked(){const ids=[...sel];sel=new Set();start(ids)}
+
+/* ---------- Interview ---------- */
+function start(ids){
+ if(!S.key){alert('Add your Groq API key in Settings first.');return go('set')}
+ const posts=ids.map(id=>S.posts.find(p=>p.id==id)).filter(Boolean);
+ if(!posts.length)return;
+ const cap=posts.length<=2?6000:posts.length<=5?2500:1200;
+ const use=posts.map(p=>({id:p.id,title:p.title,cat:p.cat,sub:p.sub,text:(p.text||'').slice(0,cap)}));
+ const N=Math.max(4,Math.min(10,3+posts.length));
+ const mat=use.map(p=>`### ${p.title}${p.cat?` — ${p.cat}${p.sub?' / '+p.sub:''}`:''}\n${p.text}`).join('\n\n');
+ I={style:S.style,posts:use,N,log:[],ans:0,busy:false,cap:false,
+  msgs:[{role:'system',content:`${S.style=='strict'?'You are a strict senior interviewer at a top company. Be terse and technical, probe vague answers, ask for precision and trade-offs, give no praise.':'You are a warm, conversational interviewer. Be encouraging, use a casual tone, give a small hint if the candidate is stuck, and keep it relaxed.'}\nYou are running a spoken interview testing the candidate's understanding of the material below, which may span several topics or time periods.\nRules: ask ONE question at a time, at most two short sentences under 180 characters, plain spoken English, no markdown or lists. Mix concept, intuition and applied questions, drawing from across all the material provided, not just the first item. React briefly to the previous answer before the next question. Ask ${N} questions in total. When told the interview is over, say a brief closing line and end with [END].\n\nMATERIAL:\n${mat}`},{role:'user',content:'Begin the interview.'}]};
+ go('live');liveUi();ask()}
+function liveUi(msg){
+ app(`<div class="top"><h2>Interview</h2><button class="g" onclick="if(confirm('Leave without saving?'))go('pick')">Quit</button></div>
+ <div class="card"><p class="mute" style="margin:0 0 6px">${I.posts.length} post${I.posts.length>1?'s':''}: ${esc(I.posts.map(p=>p.title).join(', '))}</p>
+ <p class="mute">${I.style=='strict'?'Strict':'Friendly'} · question ${Math.min(I.ans+1,I.N)} of ${I.N}</p>
+ <h3 id="st" style="text-align:center;margin:16px 0">${msg||''}</h3>
+ <button id="mic" class="mic" onclick="mic()" disabled>Answer</button>
+ <div class="row"><button onclick="replay()">Replay</button><button onclick="I.cap=!I.cap;cap()">Show text</button><button onclick="finish()">End &amp; grade</button></div>
+ <p id="cp" class="mute" style="text-align:left"></p></div>`)}
+const st=t=>{const e=$('#st');if(e)e.textContent=t},cap=()=>{const e=$('#cp');if(e)e.textContent=I.cap?I.last||'':''};
+async function ask(){
+ try{st('Interviewer is thinking...');I.busy=true;$('#mic').disabled=true;
+  const r=await chat(I.msgs),end=r.includes('[END]'),t=r.replace('[END]','').trim();
+  I.msgs.push({role:'assistant',content:r});I.log.push({role:'ai',text:t});I.last=t;cap();
+  st('Listen...');await speak(t);
+  if(end||I.over){finish();return}
+  I.busy=false;$('#mic').disabled=false;st('Your turn: tap to answer')}
+ catch(e){st('Error: '+e.message.slice(0,140));I.busy=false}}
+function replay(){if(I&&I.last&&!I.busy&&!I.rec)speak(I.last)}
+async function mic(){
+ if(I.busy)return;const b=$('#mic');
+ if(I.rec){I.rec.stop();I.rec=null;return}
+ stopAudio();
+ try{const s=await navigator.mediaDevices.getUserMedia({audio:true}),mr=new MediaRecorder(s);I.ch=[];
+  mr.ondataavailable=e=>I.ch.push(e.data);
+  mr.onstop=()=>{s.getTracks().forEach(t=>t.stop());b.classList.remove('rec');b.textContent='Answer';answered(new Blob(I.ch,{type:mr.mimeType}))};
+  mr.start();I.rec=mr;b.classList.add('rec');b.textContent='Stop';st('Recording...')}
+ catch{alert('Microphone blocked. Allow it in your browser settings for this site.')}}
+async function answered(blob){
+ I.busy=true;$('#mic').disabled=true;st('Transcribing...');
+ try{const t=await stt(blob);
+  if(!t){st("Didn't catch that. Tap to try again");I.busy=false;$('#mic').disabled=false;return}
+  I.log.push({role:'me',text:t});I.ans++;
+  const last=I.ans>=I.N;
+  I.msgs.push({role:'user',content:t+(last?'\n\n[The interview is over now. Give a brief closing line and end with [END].]':'')});
+  if(last)I.over=true;
+  await ask()}
+ catch(e){st('Error: '+e.message.slice(0,140));I.busy=false;$('#mic').disabled=false}}
+async function finish(){
+ if(!I||I.fin)return;if(I.rec){I.rec.onstop=null;I.rec.stop();I.rec=null}
+ if(!I.log.some(x=>x.role=='me')){go('pick');return}
+ I.fin=true;stopAudio();st('Grading your interview...');$('#mic').disabled=true;
+ const tr=I.log.map(x=>(x.role=='ai'?'Interviewer: ':'Candidate: ')+x.text).join('\n');
+ const mat=I.posts.map(p=>`${p.title}${p.cat?` — ${p.cat}${p.sub?' / '+p.sub:''}`:''}\n${p.text.slice(0,2500)}`).join('\n\n');
+ try{
+  const raw=await chat([{role:'system',content:'You grade interview practice. Return ONLY JSON: {"score":0-10 number,"verdict":"2 sentence summary","strengths":[strings],"gaps":[strings],"questions":[{"q":"","said":"short summary of the answer","better":"a stronger model answer","rating":"good|ok|weak"}],"study":[strings]}. Judge the answers against the material and general correctness. Be honest and specific.'},{role:'user',content:`MATERIAL:\n${mat}\n\nTRANSCRIPT:\n${tr}`}],true);
+  const an=JSON.parse(raw.replace(/```json|```/g,'').trim());
+  const s={id:uid(),ts:Date.now(),style:I.style,posts:I.posts,log:I.log,analysis:an};
+  S.sessions.unshift(s);save();I=null;go('det',s.id)}
+ catch(e){st('Grading failed: '+e.message.slice(0,120));I.fin=false;$('#mic').disabled=false}}
+
+/* ---------- History ---------- */
+function sessLabel(s){
+ if(s.posts.length==1)return s.posts[0].title;
+ const subs=[...new Set(s.posts.map(p=>p.sub))],cats=[...new Set(s.posts.map(p=>p.cat))];
+ if(cats.length==1&&subs.length==1)return `${s.posts.length} posts · ${cats[0]}${subs[0]?' / '+subs[0]:''}`;
+ if(cats.length==1)return `${s.posts.length} posts · ${cats[0]}`;
+ return `${s.posts.length} posts across topics`}
+function hist(){
+ const l=S.sessions.map(s=>`<button class="li" onclick="go('det','${s.id}')"><span><b>${esc(sessLabel(s))}</b><br><span class="mute">${s.style} · ${fmt(s.ts)}</span></span><span class="sc" style="font-size:24px">${esc(s.analysis.score)}</span></button>`).join('');
+ app(`<div class="top"><h1>History</h1></div>${l||'<p class="empty">No interviews yet. Pick some posts from the Interview tab.</p>'}`)}
+function det(id){
+ const s=S.sessions.find(x=>x.id==id),a=s.analysis,c={good:'--ok',ok:'--warn',weak:'--bad'};
+ const L=x=>(x||[]).map(i=>`<li>${esc(i)}</li>`).join('');
+ app(`<div class="top"><h2>${esc(sessLabel(s))}</h2><button class="g" onclick="go('hist')">Back</button></div>
+ <div class="card"><p class="mute" style="margin:0">${s.style} · done on ${fmt(s.ts)}</p>
+ <div class="sc">${esc(a.score)}/10</div><p>${esc(a.verdict)}</p></div>
+ <div class="card"><h3>Strengths</h3><ul>${L(a.strengths)}</ul><h3 style="margin-top:12px">Gaps</h3><ul>${L(a.gaps)}</ul><h3 style="margin-top:12px">Study next</h3><ul>${L(a.study)}</ul></div>
+ <div class="card"><h3>Question by question</h3>${(a.questions||[]).map(q=>`<div class="q" style="border-color:var(${c[q.rating]||'--mute'})"><b>${esc(q.q)}</b><p class="mute" style="margin:4px 0">You: ${esc(q.said)}</p><p style="margin:0">${esc(q.better)}</p></div>`).join('')}</div>
+ <div class="card"><details><summary>Transcript</summary>${s.log.map(x=>`<p><b>${x.role=='ai'?'Interviewer':'You'}:</b> ${esc(x.text)}</p>`).join('')}</details>
+ <details><summary>Post${s.posts.length>1?'s':''} covered</summary>${s.posts.map(p=>`<h3 style="margin-top:10px">${esc(p.title)}${p.cat?` <span class="mute" style="font-family:system-ui;font-weight:400;font-size:13px">— ${esc(p.cat)}${p.sub?' / '+esc(p.sub):''}</span>`:''}</h3><pre>${esc(p.text)}</pre>`).join('')}</details></div>
+ <button class="g" onclick="if(confirm('Delete this interview?')){S.sessions=S.sessions.filter(x=>x.id!='${s.id}');save();go('hist')}">Delete interview</button>`)}
+go('lib');
+</script></body></html>
