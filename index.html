@@ -143,7 +143,7 @@ async function imp(f){try{const d=JSON.parse(await f.text());if(d.v!=2)throw 0;S
 
 /* ---------- Groq ---------- */
 async function groq(path,o){const r=await fetch('https://api.groq.com/openai/v1/'+path,{...o,headers:{Authorization:'Bearer '+S.key,...(o.headers||{})}});if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));return r}
-async function chat(messages,json){let err;for(const m of ['llama-3.3-70b-versatile','llama-3.1-8b-instant']){try{const r=await groq('chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m,messages,temperature:.6,...(json?{response_format:{type:'json_object'}}:{})})});return(await r.json()).choices[0].message.content}catch(e){err=e}}throw err}
+async function chat(messages,json){let err;for(const m of ['openai/gpt-oss-120b','openai/gpt-oss-20b']){try{const r=await groq('chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m,messages,temperature:.6,...(json?{response_format:{type:'json_object'}}:{})})});return(await r.json()).choices[0].message.content}catch(e){err=e}}throw err}
 function chunks(t){const o=[];let c='';for(const s of t.match(/[^.!?]+[.!?]*\s*/g)||[t]){if((c+s).length>190&&c){o.push(c.trim());c=s}else c+=s}if(c.trim())o.push(c.trim());return o.map(x=>x.slice(0,195))}
 function play(u){return new Promise((res,rej)=>{au=new Audio(u);au.onended=res;au.onerror=rej;au.play().catch(rej)})}
 function stopAudio(){if(au){au.pause();au=null}speechSynthesis.cancel()}
