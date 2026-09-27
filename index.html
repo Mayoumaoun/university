@@ -162,8 +162,8 @@ function pick(){
  <div class="card"><div class="seg" style="margin-bottom:10px"><button class="${S.style=='strict'?'on':''}" onclick="S.style='strict';save();pick()">Strict</button><button class="${S.style=='friendly'?'on':''}" onclick="S.style='friendly';save();pick()">Friendly</button></div>
  <p class="mute" style="margin:0">Select any posts, from any weeks or topics, then start.</p></div>
  <button class="p fab" style="width:100%" ${sel.size?'':'disabled'} onclick="startPicked()">Start interview (${sel.size} selected)</button>
- ${gs.map(g=>`<div class="grp"><div class="grph" onclick="toggleGroup(${JSON.stringify(g.subs.flatMap(s=>s.posts.map(p=>p.id)))})"><span class="chk ${groupState({posts:g.subs.flatMap(s=>s.posts)})=='on'?'on':''}">${groupState({posts:g.subs.flatMap(s=>s.posts)})=='on'?'✓':groupState({posts:g.subs.flatMap(s=>s.posts)})=='~'?'–':''}</span>${esc(g.cat)}</div>
-  ${g.subs.map(s=>`<div class="subh" onclick="toggleGroup(${JSON.stringify(s.posts.map(p=>p.id))})"><span class="chk ${groupState(s)=='on'?'on':''}">${groupState(s)=='on'?'✓':groupState(s)=='~'?'–':''}</span>${esc(s.sub||'(no sub-category)')}</div>
+ ${gs.map(g=>`<div class="grp"><div class="grph" onclick="toggleGroup([${g.subs.flatMap(s=>s.posts.map(p=>`'${p.id}'`)).join(',')}])"><span class="chk ${groupState({posts:g.subs.flatMap(s=>s.posts)})=='on'?'on':''}">${groupState({posts:g.subs.flatMap(s=>s.posts)})=='on'?'✓':groupState({posts:g.subs.flatMap(s=>s.posts)})=='~'?'–':''}</span>${esc(g.cat)}</div>
+  ${g.subs.map(s=>`<div class="subh" onclick="toggleGroup([${s.posts.map(p=>`'${p.id}'`).join(',')}])"><span class="chk ${groupState(s)=='on'?'on':''}">${groupState(s)=='on'?'✓':groupState(s)=='~'?'–':''}</span>${esc(s.sub||'(no sub-category)')}</div>
    ${s.posts.map(p=>`<div class="prow" onclick="toggleOne('${p.id}')"><span class="chk ${sel.has(p.id)?'on':''}">${sel.has(p.id)?'✓':''}</span><span class="pt"><b>${esc(p.title)}</b></span></div>`).join('')}`).join('')}
   </div>`).join('')}`)}
 function toggleOne(id){sel.has(id)?sel.delete(id):sel.add(id);pick()}
