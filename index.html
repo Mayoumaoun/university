@@ -72,9 +72,9 @@ function migrate(o){
 let S=migrate(JSON.parse(localStorage.getItem('ai16')||'null'));
 const save=()=>localStorage.setItem('ai16',JSON.stringify(S));
 const fmt=t=>new Date(t).toLocaleString([], {dateStyle:'medium',timeStyle:'short'});
-let I=null,au=null,sel=new Set(),editing=null;
+let I=null,sel=new Set(),editing=null;
 
-function go(v,a){stopAudio();if(I&&I.rec){try{I.rec.stop()}catch{}}I=null;
+function go(v,a){if(I&&I.rec){try{I.rec.stop()}catch{}}I=null;
  $('#n1').className=v=='lib'||v=='post'?'on':'';$('#n2').className=v=='pick'||v=='live'?'on':'';$('#n3').className=v=='hist'||v=='det'?'on':'';
  ({lib,post,pick,live:()=>{},set,hist,det})[v](a)}
 const app=h=>$('#app').innerHTML=h;
@@ -144,13 +144,6 @@ async function imp(f){try{const d=JSON.parse(await f.text());if(d.v!=2)throw 0;S
 /* ---------- Groq ---------- */
 async function groq(path,o){const r=await fetch('https://api.groq.com/openai/v1/'+path,{...o,headers:{Authorization:'Bearer '+S.key,...(o.headers||{})}});if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));return r}
 async function chat(messages,json){let err;for(const m of ['openai/gpt-oss-120b','openai/gpt-oss-20b']){try{const r=await groq('chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m,messages,temperature:.6,...(json?{response_format:{type:'json_object'}}:{})})});return(await r.json()).choices[0].message.content}catch(e){err=e}}throw err}
-function chunks(t){const o=[];let c='';for(const s of t.match(/[^.!?]+[.!?]*\s*/g)||[t]){if((c+s).length>190&&c){o.push(c.trim());c=s}else c+=s}if(c.trim())o.push(c.trim());return o.map(x=>x.slice(0,195))}
-function play(u){return new Promise((res,rej)=>{au=new Audio(u);au.onended=res;au.onerror=rej;au.play().catch(rej)})}
-function stopAudio(){if(au){au.pause();au=null}speechSynthesis.cancel()}
-function browserTTS(t){return new Promise(r=>{const u=new SpeechSynthesisUtterance(t);u.onend=u.onerror=r;speechSynthesis.speak(u)})}
-async function speak(t){stopAudio();
- try{for(const c of chunks(t)){const r=await groq('audio/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'canopylabs/orpheus-v1-english',input:c,voice:I&&I.style=='strict'?'troy':'hannah',response_format:'wav'})});await play(URL.createObjectURL(await r.blob()))}}
- catch{await browserTTS(t)}}
 async function stt(blob){const f=new FormData();f.append('file',blob,'a.'+(blob.type.includes('mp4')?'m4a':'webm'));f.append('model','whisper-large-v3-turbo');f.append('language','en');return(await(await groq('audio/transcriptions',{method:'POST',body:f})).json()).text.trim()}
 
 /* ---------- Pick posts for an interview ---------- */
@@ -177,34 +170,39 @@ function start(ids){
  if(!posts.length)return;
  const cap=posts.length<=2?6000:posts.length<=5?2500:1200;
  const use=posts.map(p=>({id:p.id,title:p.title,cat:p.cat,sub:p.sub,text:(p.text||'').slice(0,cap)}));
- const N=Math.max(4,Math.min(10,3+posts.length));
  const mat=use.map(p=>`### ${p.title}${p.cat?` — ${p.cat}${p.sub?' / '+p.sub:''}`:''}\n${p.text}`).join('\n\n');
- I={style:S.style,posts:use,N,log:[],ans:0,busy:false,cap:false,
-  msgs:[{role:'system',content:`${S.style=='strict'?'You are a strict senior interviewer at a top company. Be terse and technical, probe vague answers, ask for precision and trade-offs, give no praise.':'You are a warm, conversational interviewer. Be encouraging, use a casual tone, give a small hint if the candidate is stuck, and keep it relaxed.'}\nYou are running a spoken interview testing the candidate's understanding of the material below, which may span several topics or time periods.\nRules: ask ONE question at a time, at most two short sentences under 180 characters, plain spoken English, no markdown or lists. Mix concept, intuition and applied questions, drawing from across all the material provided, not just the first item. React briefly to the previous answer before the next question. Ask ${N} questions in total. When told the interview is over, say a brief closing line and end with [END].\n\nMATERIAL:\n${mat}`},{role:'user',content:'Begin the interview.'}]};
- stopAudio();$('#n1').className='';$('#n2').className='on';$('#n3').className='';
+ I={style:S.style,posts:use,log:[],ans:0,busy:false,
+  msgs:[{role:'system',content:`${S.style=='strict'?'You are a strict senior interviewer at a top company: terse, technical, no praise, you push for precision and trade-offs.':'You are a warm, conversational interviewer: encouraging and casual, but still honest.'}\nYou are running a text interview testing the candidate's understanding of the MATERIAL below (it may span several topics or time periods). You decide, based on how much ground has genuinely been covered and how the candidate is doing, how many questions the interview needs — there is no fixed number. Typically that is somewhere between 4 and 10 questions, but use your judgement: cover the material's key ideas, mix conceptual, intuitive and applied angles, don't just interview on the first item if several were given, and don't ask more questions than the material and the candidate's answers justify. Never repeat a question already asked.\n\nAfter the candidate's first answer, and every answer after that, give real, specific feedback before moving on: say plainly what was correct, clearly correct any inaccuracy or misconception, and fill in anything important they left out, referencing the material. Do not be vague or only encouraging — the point is for the candidate to actually learn from mistakes.\n\nRespond ONLY with JSON, no markdown fences: {"feedback": string|null (null only on your very first message, before any answer exists), "question": string|null (the next question; null only when done is true), "done": boolean (true once the interview should end), "closing": string|null (a short closing line, only when done is true)}\n\nMATERIAL:\n${mat}`},{role:'user',content:'Begin the interview.'}]};
+ $('#n1').className='';$('#n2').className='on';$('#n3').className='';
  liveUi();ask()}
-function liveUi(msg){
+function liveUi(){
  app(`<div class="top"><h2>Interview</h2><button class="g" onclick="if(confirm('Leave without saving?'))go('pick')">Quit</button></div>
- <div class="card"><p class="mute" style="margin:0 0 6px">${I.posts.length} post${I.posts.length>1?'s':''}: ${esc(I.posts.map(p=>p.title).join(', '))}</p>
- <p class="mute">${I.style=='strict'?'Strict':'Friendly'} · question ${Math.min(I.ans+1,I.N)} of ${I.N}</p>
- <h3 id="st" style="text-align:center;margin:16px 0">${msg||''}</h3>
+ <div class="card"><p class="mute" style="margin:0">${I.posts.length} post${I.posts.length>1?'s':''}: ${esc(I.posts.map(p=>p.title).join(', '))} · ${I.style=='strict'?'Strict':'Friendly'}</p></div>
+ <div id="feed"></div>
+ <div class="card" style="text-align:center"><p id="st" class="mute" style="margin:0 0 10px"></p>
  <button id="mic" class="mic" onclick="mic()" disabled>Answer</button>
- <div class="row"><button onclick="replay()">Replay</button><button onclick="I.cap=!I.cap;cap()">Show text</button><button onclick="finish()">End &amp; grade</button></div>
- <p id="cp" class="mute" style="text-align:left"></p></div>`)}
-const st=t=>{const e=$('#st');if(e)e.textContent=t},cap=()=>{const e=$('#cp');if(e)e.textContent=I.cap?I.last||'':''};
+ <button onclick="finish()">End &amp; grade now</button></div>`);
+ renderFeed()}
+function renderFeed(){
+ const e=$('#feed');if(!e)return;
+ e.innerHTML=I.log.map(x=>x.role=='q'?`<div class="card"><b>Question ${x.n}</b><p style="margin:6px 0 0">${esc(x.text)}</p></div>`
+  :x.role=='me'?`<div class="card" style="background:#242a4d"><p class="mute" style="margin:0 0 4px">You said</p><p style="margin:0">${esc(x.text)}</p></div>`
+  :`<div class="card" style="border-left:3px solid var(--acc)"><p class="mute" style="margin:0 0 4px">Feedback</p><p style="margin:0">${esc(x.text)}</p></div>`).join('');
+ e.scrollIntoView&&window.scrollTo(0,document.body.scrollHeight)}
+const st=t=>{const e=$('#st');if(e)e.textContent=t};
 async function ask(){
  try{st('Interviewer is thinking...');I.busy=true;$('#mic').disabled=true;
-  const r=await chat(I.msgs),end=r.includes('[END]'),t=r.replace('[END]','').trim();
-  I.msgs.push({role:'assistant',content:r});I.log.push({role:'ai',text:t});I.last=t;cap();
-  st('Listen...');await speak(t);
-  if(end||I.over){finish();return}
+  const raw=await chat(I.msgs,true);
+  let j;try{j=JSON.parse(raw.replace(/```json|```/g,'').trim())}catch{j={feedback:null,question:raw.replace(/```json|```/g,'').trim(),done:false,closing:null}}
+  I.msgs.push({role:'assistant',content:[j.feedback,j.question||j.closing].filter(Boolean).join('\n\n')});
+  if(j.feedback){I.log.push({role:'fb',text:j.feedback})}
+  if(j.done){if(j.closing)I.log.push({role:'fb',text:j.closing});renderFeed();finish();return}
+  I.ans++;I.log.push({role:'q',n:I.ans,text:j.question});renderFeed();
   I.busy=false;$('#mic').disabled=false;st('Your turn: tap to answer')}
  catch(e){st('Error: '+e.message.slice(0,140));I.busy=false}}
-function replay(){if(I&&I.last&&!I.busy&&!I.rec)speak(I.last)}
 async function mic(){
  if(I.busy)return;const b=$('#mic');
  if(I.rec){I.rec.stop();I.rec=null;return}
- stopAudio();
  try{const s=await navigator.mediaDevices.getUserMedia({audio:true}),mr=new MediaRecorder(s);I.ch=[];
   mr.ondataavailable=e=>I.ch.push(e.data);
   mr.onstop=()=>{s.getTracks().forEach(t=>t.stop());b.classList.remove('rec');b.textContent='Answer';answered(new Blob(I.ch,{type:mr.mimeType}))};
@@ -214,17 +212,15 @@ async function answered(blob){
  I.busy=true;$('#mic').disabled=true;st('Transcribing...');
  try{const t=await stt(blob);
   if(!t){st("Didn't catch that. Tap to try again");I.busy=false;$('#mic').disabled=false;return}
-  I.log.push({role:'me',text:t});I.ans++;
-  const last=I.ans>=I.N;
-  I.msgs.push({role:'user',content:t+(last?'\n\n[The interview is over now. Give a brief closing line and end with [END].]':'')});
-  if(last)I.over=true;
+  I.log.push({role:'me',text:t});renderFeed();
+  I.msgs.push({role:'user',content:t});
   await ask()}
  catch(e){st('Error: '+e.message.slice(0,140));I.busy=false;$('#mic').disabled=false}}
 async function finish(){
  if(!I||I.fin)return;if(I.rec){I.rec.onstop=null;I.rec.stop();I.rec=null}
  if(!I.log.some(x=>x.role=='me')){go('pick');return}
- I.fin=true;stopAudio();st('Grading your interview...');$('#mic').disabled=true;
- const tr=I.log.map(x=>(x.role=='ai'?'Interviewer: ':'Candidate: ')+x.text).join('\n');
+ I.fin=true;st('Grading your interview...');$('#mic').disabled=true;
+ const tr=I.log.filter(x=>x.role!='fb'||true).map(x=>(x.role=='q'?'Interviewer: ':x.role=='me'?'Candidate: ':'Interviewer feedback: ')+x.text).join('\n');
  const mat=I.posts.map(p=>`${p.title}${p.cat?` — ${p.cat}${p.sub?' / '+p.sub:''}`:''}\n${p.text.slice(0,2500)}`).join('\n\n');
  try{
   const raw=await chat([{role:'system',content:'You grade interview practice. Return ONLY JSON: {"score":0-10 number,"verdict":"2 sentence summary","strengths":[strings],"gaps":[strings],"questions":[{"q":"","said":"short summary of the answer","better":"a stronger model answer","rating":"good|ok|weak"}],"study":[strings]}. Judge the answers against the material and general correctness. Be honest and specific.'},{role:'user',content:`MATERIAL:\n${mat}\n\nTRANSCRIPT:\n${tr}`}],true);
