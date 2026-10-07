@@ -87,6 +87,14 @@ function migrate(o){
  return{v:3,key:o.key||'',style:o.style||'strict',lang:o.lang||'auto',posts:[],sessions:[]}}
 
 let S=migrate(JSON.parse(localStorage.getItem('ai16')||'null'));
+if(!S.role)S.role='general';if(S.roleCustom==null)S.roleCustom='';
+const ROLES={general:{label:'General comprehension',line:''},
+ web:{label:'Web Developer',line:'Frame this interview as if for a Web Developer role: focus your questions on how these ideas apply to building, shipping and maintaining web applications, APIs and user-facing features.'},
+ arch:{label:'Software Architecture',line:'Frame this interview as if for a Software Architect role: focus on system design, trade-offs, scalability, reliability and high-level technical decisions.'},
+ dba:{label:'Database Administrator',line:'Frame this interview as if for a Database Administrator role: focus on data modeling, storage, indexing, query performance, backups and reliability.'},
+ data:{label:'Data / ML Engineer',line:'Frame this interview as if for a Data Scientist or ML Engineer role: focus on applied modeling, evaluation, and production machine-learning concerns.'},
+ product:{label:'Product Manager',line:'Frame this interview as if for a Product Manager role: focus on trade-offs, user impact, prioritization, and explaining technical ideas clearly to stakeholders.'},
+ custom:{label:'Custom…',line:null}};
 const save=()=>localStorage.setItem('ai16',JSON.stringify(S));
 const fmt=t=>new Date(t).toLocaleString([], {dateStyle:'medium',timeStyle:'short'});
 let I=null,sel=new Set(),editing=null,crumb=[],q='';
@@ -194,34 +202,33 @@ async function chat(messages,json){let err;for(const m of ['openai/gpt-oss-120b'
 async function stt(blob){const f=new FormData();f.append('file',blob,'a.'+(blob.type.includes('mp4')?'m4a':'webm'));f.append('model','whisper-large-v3-turbo');return(await(await groq('audio/transcriptions',{method:'POST',body:f})).json()).text.trim()}
 
 /* ---------- Pick posts for an interview ---------- */
-function groupTree(list){const t={};list.forEach(p=>{const sp=p.space||'Unsorted',ct=p.cat||'General',sb=p.sub||'';t[sp]=t[sp]||{};t[sp][ct]=t[sp][ct]||{};t[sp][ct][sb]=t[sp][ct][sb]||[];t[sp][ct][sb].push(p)});return t}
+let pcrumb=[];
+function pickState(ids){const on=ids.filter(i=>sel.has(i)).length;return on==0?'':on==ids.length?'on':'~'}
+function pickBox(ids){const s=pickState(ids);return `<span class="chk ${s=='on'?'on':''}">${s=='on'?'✓':s=='~'?'–':''}</span>`}
 function pick(){
  if(!S.posts.length){app(`<div class="top"><h1>New interview</h1></div><p class="empty">Add posts in the Library first.</p>`);return}
- const tree=groupTree(S.posts);
- const state=ids=>{const on=ids.filter(i=>sel.has(i)).length;return on==0?'':on==ids.length?'on':'~'};
- const box=ids=>{const s=state(ids);return `<span class="chk ${s=='on'?'on':''}">${s=='on'?'✓':s=='~'?'–':''}</span>`};
- let html='';
- for(const sp of Object.keys(tree).sort(natCmp)){
-  const spIds=Object.values(tree[sp]).flatMap(o=>Object.values(o).flat()).map(p=>p.id);
-  html+=`<details class="gdiv"><summary onclick="event.preventDefault();toggleGroup([${spIds.map(i=>`'${i}'`).join(',')}])" style="cursor:pointer"><span onclick="event.stopPropagation()"></span>${box(spIds)} 📁 ${esc(sp)}</summary><div class="inner">`;
-  for(const ct of Object.keys(tree[sp]).sort(natCmp)){
-   const ctIds=Object.values(tree[sp][ct]).flat().map(p=>p.id);
-   html+=`<details open class="gdiv" style="margin-left:6px"><summary onclick="event.preventDefault();toggleGroup([${ctIds.map(i=>`'${i}'`).join(',')}])" style="cursor:pointer;font-size:14px">${box(ctIds)} ${esc(ct)}</summary><div class="inner">`;
-   for(const sb of Object.keys(tree[sp][ct]).sort(natCmp)){
-    if(sb)html+=`<p class="mute" style="margin:6px 0 2px 8px">${esc(sb)}</p>`;
-    for(const p of tree[sp][ct][sb]){
-     html+=`<button class="row2" onclick="toggleOne('${p.id}')"><span class="chk ${sel.has(p.id)?'on':''}">${sel.has(p.id)?'✓':''}</span><b style="font-weight:500;font-size:14.5px">${esc(p.title)}</b></button>`}}
-   html+=`</div></details>`}
-  html+=`</div></details>`}
- app(`<div class="top"><h1>New interview</h1></div>
- <div class="card"><div class="row" style="margin-bottom:10px"><div class="seg"><button class="${S.style=='strict'?'on':''}" onclick="S.style='strict';save();pick()">Strict</button><button class="${S.style=='friendly'?'on':''}" onclick="S.style='friendly';save();pick()">Friendly</button></div></div>
+ const settings=`<div class="card">
+ <label class="mute">Mode / role</label>
+ <select onchange="S.role=this.value;save();pick()" style="margin-bottom:${S.role=='custom'?'8':'10'}px">${Object.entries(ROLES).map(([k,v])=>`<option value="${k}" ${S.role==k?'selected':''}>${v.label}</option>`).join('')}</select>
+ ${S.role=='custom'?`<input placeholder="Describe the role or objective, e.g. Backend engineer interview focused on API design" value="${esc(S.roleCustom)}" oninput="S.roleCustom=this.value" onblur="save()" style="margin-bottom:10px">`:''}
+ <div class="row" style="margin-bottom:10px"><div class="seg"><button class="${S.style=='strict'?'on':''}" onclick="S.style='strict';save();pick()">Strict</button><button class="${S.style=='friendly'?'on':''}" onclick="S.style='friendly';save();pick()">Friendly</button></div></div>
  <label class="mute">Interview language</label>
- <select onchange="S.lang=this.value;save()">${Object.entries(LANGS).map(([k,v])=>`<option value="${k}" ${S.lang==k?'selected':''}>${v}</option>`).join('')}</select></div>
- <button class="p" style="width:100%;margin-bottom:12px" ${sel.size?'':'disabled'} onclick="startPicked()">Start interview (${sel.size} selected)</button>
- ${html}`)}
+ <select onchange="S.lang=this.value;save()">${Object.entries(LANGS).map(([k,v])=>`<option value="${k}" ${S.lang==k?'selected':''}>${v}</option>`).join('')}</select></div>`;
+ const startBtn=`<button class="p" style="width:100%;margin-bottom:12px" ${sel.size?'':'disabled'} onclick="startPicked()">Start interview (${sel.size} selected)</button>`;
+ const crumbHtml=`<div class="crumb"><span class="${pcrumb.length==0?'on':''}" onclick="pcrumb=[];pick()">All posts</span>`+pcrumb.map((c,i)=>`<i>›</i><span class="${i==pcrumb.length-1?'on':''}" onclick="pcrumb=pcrumb.slice(0,${i+1});pick()">${esc(c||'Unsorted')}</span>`).join('')+`</div>`;
+ let body;
+ if(pcrumb.length<3){
+  const idx=pcrumb.length,opts=distinctAt(idx,pcrumb);
+  body=opts.length?opts.map(v=>{const ids=postsAt([...pcrumb,v]).map(p=>p.id);
+   return `<div class="card" style="padding:0;display:flex;align-items:center"><button class="icon" style="padding:14px" onclick="toggleGroup([${ids.map(i=>`'${i}'`).join(',')}])">${pickBox(ids)}</button><button class="row2" style="border:0;flex:1" onclick="pcrumb=[...pcrumb,'${esc(v).replace(/'/g,"\\'")}'];pick()"><span class="folder">📁</span><span><b>${esc(v||'Unsorted')}</b><span class="sub">${ids.length} post${ids.length==1?'':'s'}</span></span><span class="arrow">›</span></button></div>`}).join(''):`<p class="empty">Nothing here.</p>`;
+ }else{
+  const ps=postsAt(pcrumb);
+  body=ps.length?`<div class="card" style="padding:0"><button class="row2" style="width:100%;border-bottom:1px solid var(--line)" onclick="toggleGroup([${ps.map(p=>`'${p.id}'`).join(',')}])">${pickBox(ps.map(p=>p.id))}<b>Select all here</b></button>${ps.map(p=>`<button class="row2" style="width:100%" onclick="toggleOne('${p.id}')"><span class="chk ${sel.has(p.id)?'on':''}">${sel.has(p.id)?'✓':''}</span><b style="font-weight:500">${esc(p.title)}</b></button>`).join('')}</div>`:`<p class="empty">No posts here.</p>`;
+ }
+ app(`<div class="top"><h1>New interview</h1></div>${settings}${startBtn}${crumbHtml}${body}`)}
 function toggleOne(id){sel.has(id)?sel.delete(id):sel.add(id);pick()}
 function toggleGroup(ids){const allOn=ids.every(i=>sel.has(i));ids.forEach(i=>allOn?sel.delete(i):sel.add(i));pick()}
-function startPicked(){const ids=[...sel];sel=new Set();start(ids)}
+function startPicked(){const ids=[...sel];sel=new Set();pcrumb=[];start(ids)}
 
 /* ---------- Interview ---------- */
 function start(ids){
@@ -232,14 +239,17 @@ function start(ids){
  const use=posts.map(p=>({id:p.id,title:p.title,space:p.space,cat:p.cat,sub:p.sub,text:(p.text||'').slice(0,cap)}));
  const mat=use.map(p=>`### ${p.title}${p.space||p.cat?` — ${[p.space,p.cat,p.sub].filter(Boolean).join(' / ')}`:''}\n${p.text}`).join('\n\n');
  const langLine=S.lang=='auto'?'Use the same language as the MATERIAL below for everything you say — questions, feedback, and the closing line.':`Conduct the entire interview — every question, every piece of feedback, and the closing line — in ${LANGS[S.lang]}, regardless of the language the MATERIAL is written in.`;
- I={style:S.style,lang:S.lang,posts:use,log:[],ans:0,busy:false,
-  msgs:[{role:'system',content:`${S.style=='strict'?'You are a strict senior interviewer at a top company: terse, technical, no praise, you push for precision and trade-offs.':'You are a warm, conversational interviewer: encouraging and casual, but still honest.'}\n${langLine}\nYou are running a text interview testing the candidate's understanding of the MATERIAL below (it may span several topics or time periods). You decide, based on how much ground has genuinely been covered and how the candidate is doing, how many questions the interview needs — there is no fixed number. Typically that is somewhere between 4 and 10 questions, but use your judgement: cover the material's key ideas, mix conceptual, intuitive and applied angles, don't just interview on the first item if several were given, and don't ask more questions than the material and the candidate's answers justify. Never repeat a question already asked.\n\nAfter the candidate's first answer, and every answer after that, give real, specific feedback before moving on: say plainly what was correct, clearly correct any inaccuracy or misconception, and fill in anything important they left out, referencing the material. Do not be vague or only encouraging — the point is for the candidate to actually learn from mistakes.\n\nRespond ONLY with JSON, no markdown fences: {"feedback": string|null (null only on your very first message, before any answer exists), "question": string|null (the next question; null only when done is true), "done": boolean (true once the interview should end), "closing": string|null (a short closing line, only when done is true)}\n\nMATERIAL:\n${mat}`},{role:'user',content:'Begin the interview.'}]};
+ const roleDef=ROLES[S.role]||ROLES.general;
+ const roleLine=S.role=='custom'?(S.roleCustom.trim()?`Frame this interview around the following role or objective: "${S.roleCustom.trim()}". Shape your questions and feedback to fit that angle, while still grounding every question in the MATERIAL below.`:''):roleDef.line;
+ const roleLabel=S.role=='custom'?(S.roleCustom.trim()||'Custom'):roleDef.label;
+ I={style:S.style,lang:S.lang,role:S.role,roleLabel,posts:use,log:[],ans:0,busy:false,
+  msgs:[{role:'system',content:`${S.style=='strict'?'You are a strict senior interviewer at a top company: terse, technical, no praise, you push for precision and trade-offs.':'You are a warm, conversational interviewer: encouraging and casual, but still honest.'}\n${langLine}${roleLine?'\n'+roleLine:''}\nYou are running a text interview testing the candidate's understanding of the MATERIAL below (it may span several topics or time periods). You decide, based on how much ground has genuinely been covered and how the candidate is doing, how many questions the interview needs — there is no fixed number. Typically that is somewhere between 4 and 10 questions, but use your judgement: cover the material's key ideas, mix conceptual, intuitive and applied angles, don't just interview on the first item if several were given, and don't ask more questions than the material and the candidate's answers justify. Never repeat a question already asked.\n\nAfter the candidate's first answer, and every answer after that, give real, specific feedback before moving on: say plainly what was correct, clearly correct any inaccuracy or misconception, and fill in anything important they left out, referencing the material. Do not be vague or only encouraging — the point is for the candidate to actually learn from mistakes.\n\nRespond ONLY with JSON, no markdown fences: {"feedback": string|null (null only on your very first message, before any answer exists), "question": string|null (the next question; null only when done is true), "done": boolean (true once the interview should end), "closing": string|null (a short closing line, only when done is true)}\n\nMATERIAL:\n${mat}`},{role:'user',content:'Begin the interview.'}]};
  $('#n1').className='';$('#n2').className='on';$('#n3').className='';
  liveUi();ask()}
 function liveUi(){
  app(`<div class="top"><h2>Interview</h2><button class="g" onclick="if(confirm('Leave without saving?'))go('pick')">Quit</button></div>
  <div class="card"><p class="mute" style="margin:0">${I.posts.length} post${I.posts.length>1?'s':''}: ${esc(I.posts.map(p=>p.title).join(', '))}</p>
- <p class="mute" style="margin:2px 0 0">${I.style=='strict'?'Strict':'Friendly'} · ${LANGS[I.lang]}</p></div>
+ <p class="mute" style="margin:2px 0 0">${esc(I.roleLabel)} · ${I.style=='strict'?'Strict':'Friendly'} · ${LANGS[I.lang]}</p></div>
  <div id="feed"></div>
  <div class="card" style="text-align:center"><p id="st" class="mute" style="margin:0 0 10px"></p>
  <button id="mic" class="mic" onclick="mic()" disabled>Answer</button>
@@ -287,7 +297,7 @@ async function finish(){
  try{
   const raw=await chat([{role:'system',content:`You grade interview practice. Return ONLY JSON: {"score":0-10 number,"verdict":"2 sentence summary","strengths":[strings],"gaps":[strings],"questions":[{"q":"","said":"short summary of the answer","better":"a stronger model answer","rating":"good|ok|weak"}],"study":[strings]}. Judge the answers against the material and general correctness. Be honest and specific. ${langLine}`},{role:'user',content:`MATERIAL:\n${mat}\n\nTRANSCRIPT:\n${tr}`}],true);
   const an=JSON.parse(raw.replace(/```json|```/g,'').trim());
-  const s={id:uid(),ts:Date.now(),style:I.style,lang:I.lang,posts:I.posts,log:I.log,analysis:an};
+  const s={id:uid(),ts:Date.now(),style:I.style,lang:I.lang,roleLabel:I.roleLabel,posts:I.posts,log:I.log,analysis:an};
   S.sessions.unshift(s);save();I=null;go('det',s.id)}
  catch(e){st('Grading failed: '+e.message.slice(0,120));I.fin=false;$('#mic').disabled=false}}
 
@@ -298,13 +308,13 @@ function sessLabel(s){
  if(paths.length==1)return `${s.posts.length} posts · ${paths[0]}`;
  return `${s.posts.length} posts across topics`}
 function hist(){
- const l=S.sessions.map(s=>`<button class="li" onclick="go('det','${s.id}')"><span><b>${esc(sessLabel(s))}</b><br><span class="mute">${s.style} · ${LANGS[s.lang||'auto']} · ${fmt(s.ts)}</span></span><span class="sc" style="font-size:22px">${esc(s.analysis.score)}</span></button>`).join('');
+ const l=S.sessions.map(s=>`<button class="li" onclick="go('det','${s.id}')"><span><b>${esc(sessLabel(s))}</b><br><span class="mute">${esc(s.roleLabel||'General comprehension')} · ${s.style} · ${LANGS[s.lang||'auto']} · ${fmt(s.ts)}</span></span><span class="sc" style="font-size:22px">${esc(s.analysis.score)}</span></button>`).join('');
  app(`<div class="top"><h1>History</h1></div>${l||'<p class="empty">No interviews yet. Pick some posts from the Interview tab.</p>'}`)}
 function det(id){
  const s=S.sessions.find(x=>x.id==id),a=s.analysis,c={good:'--ok',ok:'--warn',weak:'--bad'};
  const L=x=>(x||[]).map(i=>`<li>${esc(i)}</li>`).join('');
  app(`<div class="top"><h2>${esc(sessLabel(s))}</h2><button class="g" onclick="go('hist')">Back</button></div>
- <div class="card"><p class="mute" style="margin:0">${s.style} · ${LANGS[s.lang||'auto']} · done on ${fmt(s.ts)}</p>
+ <div class="card"><p class="mute" style="margin:0">${esc(s.roleLabel||'General comprehension')} · ${s.style} · ${LANGS[s.lang||'auto']} · done on ${fmt(s.ts)}</p>
  <div class="sc">${esc(a.score)}/10</div><p>${esc(a.verdict)}</p></div>
  <div class="card"><h3>Strengths</h3><ul>${L(a.strengths)}</ul><h3 style="margin-top:12px">Gaps</h3><ul>${L(a.gaps)}</ul><h3 style="margin-top:12px">Study next</h3><ul>${L(a.study)}</ul></div>
  <div class="card"><h3>Question by question</h3>${(a.questions||[]).map(qq=>`<div class="q" style="border-color:var(${c[qq.rating]||'--line'})"><b>${esc(qq.q)}</b><p class="mute" style="margin:4px 0">You: ${esc(qq.said)}</p><p style="margin:0">${esc(qq.better)}</p></div>`).join('')}</div>
